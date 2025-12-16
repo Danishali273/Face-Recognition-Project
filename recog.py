@@ -17,7 +17,6 @@ with open("face_model.pkl", "rb") as f:
 
 print("ML Model loaded successfully!")
 print(f"Model can recognize: {model.classes_}")
-print(f"Recognition threshold: {RECOGNITION_THRESHOLD}")
 
 cap = cv2.VideoCapture(0)
 
@@ -27,7 +26,7 @@ while True:
         continue
 
     # Resize for speed (optional)
-    small_frame = cv2.resize(frame, (0, 0), fx=0.25, fy=0.25)
+    small_frame = cv2.resize(frame, (0, 0), fx=0.25, fy=0.25) 
     rgb_small_frame = cv2.cvtColor(small_frame, cv2.COLOR_BGR2RGB)
 
     # 2. DETECT FACES
@@ -84,8 +83,7 @@ while True:
         (text_width, text_height), baseline = cv2.getTextSize(label, cv2.FONT_HERSHEY_DUPLEX, 0.6, 1)
         
         # Draw filled rectangle above the box for text background
-        cv2.rectangle(frame, (left, top - text_height - 10), (left + text_width + 10, top), color, cv2.FILLED)
-        
+        cv2.rectangle(frame, (left, top - text_height - 10), (left + text_width + 10, top), color)
         # Draw text
         cv2.putText(frame, label, (left + 5, top - 5), cv2.FONT_HERSHEY_DUPLEX, 0.6, (255, 255, 255), 1)
 

@@ -94,19 +94,17 @@ def capture_face_data(name, max_samples=15):
         rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         
         # Detect faces
-        face_locations = face_recognition.face_locations(rgb_frame, model="hog")
+        face_locations = face_recognition.face_locations(rgb_frame, model="hog") #(HOG) Histogram of Oriented Gradients
 
         # Draw green boxes around detected faces
         for (top, right, bottom, left) in face_locations:
             cv2.rectangle(frame, (left, top), (right, bottom), (0, 255, 0), 2)
-            cv2.rectangle(frame, (left, bottom - 25), (right, bottom), (0, 255, 0), cv2.FILLED)
-            cv2.putText(frame, "Face Detected", (left + 6, bottom - 6),
+            cv2.putText(frame, "Face Detected", (left + 6, top - 6),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
 
         # Show progress
         progress_text = f"Samples: {len(encodings_list)}/{max_samples}"
-        cv2.putText(frame, progress_text, (10, 30), 
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+        cv2.putText(frame, progress_text, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
         
         if len(face_locations) > 0:
             cv2.putText(frame, "Face Detected - Press 'c' to capture", (10, 60),

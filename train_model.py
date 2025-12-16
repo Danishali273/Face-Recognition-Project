@@ -2,12 +2,13 @@ import pandas as pd
 import numpy as np
 import pickle
 from sklearn.neighbors import KNeighborsClassifier
-from npwriter import f_name  # Gets the filename 'face_encodings.csv'
+
+DATA_FILE = "face_encodings.csv"
 
 def train():
     # 1. Load the dataset
     try:
-        df = pd.read_csv(f_name, index_col=0)
+        df = pd.read_csv(DATA_FILE, index_col=0)
     except FileNotFoundError:
         print("Error: No data found. Run manage_faces.py first to collect data.")
         return
