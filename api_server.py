@@ -6,7 +6,7 @@ Connects the React frontend with Python face recognition.
 
 Run with: uvicorn api_server:app --reload --port 8000
 """
-
+#python -m uvicorn api_server:app --reload --port 8000
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
@@ -38,6 +38,9 @@ app.add_middleware(
 # File paths
 DATA_FILE = "face_encodings.csv"
 MODEL_FILE = "face_model.pkl"
+
+# Recognition threshold - faces with confidence below this are marked as Unknown
+RECOGNITION_THRESHOLD = 0.35  # Increased for better accuracy
 
 
 # Pydantic models
@@ -299,13 +302,20 @@ async def recognize_face(request: CaptureRequest):
         
         results = []
         for encoding, location in zip(face_encodings, face_locations):
-            # Predict
-            name = model.predict([encoding])[0]
-            
             # Get distance for confidence
             distances, _ = model.kneighbors([encoding])
-            avg_distance = np.mean(distances)
-            confidence = max(0, min(1, 1 - (avg_distance / 1.0)))  # Normalize to 0-1
+            
+            # Use the minimum distance (best match) for confidence
+            min_distance = np.min(distances)
+            
+            # Face recognition distances: 0.0-0.4 excellent, 0.4-0.6 good, >0.6 poor
+            confidence = max(0, min(1, 1 - (min_distance / 0.6)))
+            
+            # Only predict name if confidence is above threshold
+            if confidence >= RECOGNITION_THRESHOLD:
+                name = model.predict([encoding])[0]
+            else:
+                name = "Unknown"
             
             results.append(RecognitionResult(
                 name=name,
@@ -350,10 +360,19 @@ async def video_websocket(websocket: WebSocket):
                     face_encodings = face_recognition.face_encodings(rgb_image, face_locations)
                     
                     for encoding, location in zip(face_encodings, face_locations):
-                        name = model.predict([encoding])[0]
                         distances, _ = model.kneighbors([encoding])
-                        avg_distance = np.mean(distances)
-                        confidence = max(0, min(1, 1 - (avg_distance / 1.0)))
+                        
+                        # Use the minimum distance (best match) for confidence
+                        min_distance = np.min(distances)
+                        
+                        # Face recognition distances: 0.0-0.4 excellent, 0.4-0.6 good, >0.6 poor
+                        confidence = max(0, min(1, 1 - (min_distance / 0.6)))
+                        
+                        # Only predict name if confidence is above threshold
+                        if confidence >= RECOGNITION_THRESHOLD:
+                            name = model.predict([encoding])[0]
+                        else:
+                            name = "Unknown"
                         
                         results.append({
                             "name": name,

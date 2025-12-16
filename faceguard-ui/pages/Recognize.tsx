@@ -179,7 +179,7 @@ const Recognize: React.FC = () => {
               autoPlay 
               playsInline 
               muted
-              className="w-full h-full object-cover transform scale-x-[-1]"
+              className="w-full h-full object-contain transform scale-x-[-1]"
             />
             
             {/* HUD Overlay */}
@@ -188,42 +188,82 @@ const Recognize: React.FC = () => {
               
               {/* Detected Face Bounding Boxes */}
               {detectedFaces.map((face, index) => {
-                // bbox is [top, right, bottom, left] - scale to video size
-                const videoWidth = videoRef.current?.videoWidth || 640;
-                const videoHeight = videoRef.current?.videoHeight || 480;
-                const displayWidth = videoRef.current?.clientWidth || 640;
-                const displayHeight = videoRef.current?.clientHeight || 480;
+                // bbox is [top, right, bottom, left] from face_recognition library
+                const videoElement = videoRef.current;
+                if (!videoElement) return null;
                 
-                const scaleX = displayWidth / videoWidth;
-                const scaleY = displayHeight / videoHeight;
+                const videoWidth = videoElement.videoWidth || 640;
+                const videoHeight = videoElement.videoHeight || 480;
+                const displayWidth = videoElement.clientWidth;
+                const displayHeight = videoElement.clientHeight;
                 
-                const top = face.bbox[0] * scaleY;
-                const right = (videoWidth - face.bbox[1]) * scaleX; // Flip for mirrored video
-                const bottom = face.bbox[2] * scaleY;
-                const left = (videoWidth - face.bbox[3]) * scaleX; // Flip for mirrored video
+                // Calculate actual video display size (accounting for object-contain)
+                const videoAspect = videoWidth / videoHeight;
+                const displayAspect = displayWidth / displayHeight;
                 
-                const width = Math.abs(right - left);
+                let actualWidth, actualHeight, offsetX, offsetY;
+                
+                if (displayAspect > videoAspect) {
+                  // Letterbox (black bars on sides)
+                  actualHeight = displayHeight;
+                  actualWidth = displayHeight * videoAspect;
+                  offsetX = (displayWidth - actualWidth) / 2;
+                  offsetY = 0;
+                } else {
+                  // Pillarbox (black bars on top/bottom)
+                  actualWidth = displayWidth;
+                  actualHeight = displayWidth / videoAspect;
+                  offsetX = 0;
+                  offsetY = (displayHeight - actualHeight) / 2;
+                }
+                
+                const scaleX = actualWidth / videoWidth;
+                const scaleY = actualHeight / videoHeight;
+                
+                // Convert face_recognition coordinates [top, right, bottom, left] to display coordinates
+                const top = face.bbox[0] * scaleY + offsetY;
+                const right = face.bbox[1] * scaleX;
+                const bottom = face.bbox[2] * scaleY + offsetY;
+                const left = face.bbox[3] * scaleX;
+                
+                // Flip horizontally for mirrored video
+                const flippedLeft = actualWidth - right + offsetX;
+                const flippedRight = actualWidth - left + offsetX;
+                
+                const width = flippedRight - flippedLeft;
                 const height = bottom - top;
                 
                 return (
                   <div 
                     key={index}
-                    className="absolute border-2 border-green-500 shadow-[0_0_20px_rgba(34,197,94,0.4)] transition-all duration-150"
+                    className={`absolute border-2 shadow-[0_0_20px_rgba(34,197,94,0.4)] transition-all duration-150 ${
+                      face.name === 'Unknown' ? 'border-red-500' : 'border-green-500'
+                    }`}
                     style={{
                       top: `${top}px`,
-                      left: `${Math.min(left, right)}px`,
+                      left: `${flippedLeft}px`,
                       width: `${width}px`,
                       height: `${height}px`,
                     }}
                   >
                     {/* Corners */}
-                    <div className="absolute -top-1 -left-1 w-4 h-4 border-t-4 border-l-4 border-green-500"></div>
-                    <div className="absolute -top-1 -right-1 w-4 h-4 border-t-4 border-r-4 border-green-500"></div>
-                    <div className="absolute -bottom-1 -left-1 w-4 h-4 border-b-4 border-l-4 border-green-500"></div>
-                    <div className="absolute -bottom-1 -right-1 w-4 h-4 border-b-4 border-r-4 border-green-500"></div>
+                    <div className={`absolute -top-1 -left-1 w-4 h-4 border-t-4 border-l-4 ${
+                      face.name === 'Unknown' ? 'border-red-500' : 'border-green-500'
+                    }`}></div>
+                    <div className={`absolute -top-1 -right-1 w-4 h-4 border-t-4 border-r-4 ${
+                      face.name === 'Unknown' ? 'border-red-500' : 'border-green-500'
+                    }`}></div>
+                    <div className={`absolute -bottom-1 -left-1 w-4 h-4 border-b-4 border-l-4 ${
+                      face.name === 'Unknown' ? 'border-red-500' : 'border-green-500'
+                    }`}></div>
+                    <div className={`absolute -bottom-1 -right-1 w-4 h-4 border-b-4 border-r-4 ${
+                      face.name === 'Unknown' ? 'border-red-500' : 'border-green-500'
+                    }`}></div>
 
                     {/* Label */}
-                    <div className="absolute -bottom-10 left-1/2 -translate-x-1/2 bg-green-600/90 text-white px-3 py-1.5 rounded text-sm font-mono whitespace-nowrap backdrop-blur-sm">
+                    <div className={`absolute -bottom-10 left-1/2 -translate-x-1/2 text-white px-3 py-1.5 rounded text-sm font-mono whitespace-nowrap backdrop-blur-sm ${
+                      face.name === 'Unknown' ? 'bg-red-600/90' : 'bg-green-600/90'
+                    }`}>
                       <span className="font-bold">{face.name}</span>
                       <span className="ml-2 opacity-75">{(face.confidence * 100).toFixed(0)}%</span>
                     </div>
