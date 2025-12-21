@@ -19,7 +19,7 @@ This project is a full-stack face recognition system with a Python backend and a
 ### Installation
 1. **Clone the repository** (if not already):
    ```sh
-   git clone <repo-url>
+   git clone <https://github.com/Danishali273/Face-Recognition-Project>
    cd Face-Recognition-Project
    ```
 2. **Install dependencies:**
@@ -28,7 +28,7 @@ This project is a full-stack face recognition system with a Python backend and a
    ```
 3. **Run the API server:**
    ```sh
-   python api_server.py
+   uvicorn api_server:app --reload --port 8000
    ```
 
 ---
