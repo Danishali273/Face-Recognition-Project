@@ -1,7 +1,8 @@
 """
-Face Data Management System
-----------------------------
+Face Data Management System (ArcFace)
+--------------------------------------
 Complete management interface for face recognition database.
+Uses InsightFace ArcFace model for 512-dimensional embeddings.
 
 Features:
   1. Add new face - Capture face samples for new person
@@ -13,14 +14,27 @@ Features:
 import cv2
 import numpy as np
 import pandas as pd
-import face_recognition
 import os
 import pickle
 from sklearn.neighbors import KNeighborsClassifier
+from insightface.app import FaceAnalysis
 
 # File where data will be stored
 DATA_FILE = "face_encodings.csv"
 MODEL_FILE = "face_model.pkl"
+
+# Global face analysis model (initialized lazily)
+_face_app = None
+
+def get_face_app():
+    """Get or initialize the InsightFace model."""
+    global _face_app
+    if _face_app is None:
+        print("Loading ArcFace model (first time may take a moment)...")
+        _face_app = FaceAnalysis(name='buffalo_l', providers=['CPUExecutionProvider'])
+        _face_app.prepare(ctx_id=0, det_size=(640, 640))
+        print("ArcFace model loaded!")
+    return _face_app
 
 
 def get_stored_names():
@@ -50,13 +64,14 @@ def save_encodings(name, encodings):
     if encodings is None or len(encodings) == 0:
         return False
     
+    # ArcFace produces 512-dimensional embeddings
     if os.path.isfile(DATA_FILE):
         df = pd.read_csv(DATA_FILE, index_col=0)
-        latest = pd.DataFrame(encodings, columns=[f"encoding_{i}" for i in range(128)])
+        latest = pd.DataFrame(encodings, columns=[f"encoding_{i}" for i in range(512)])
         latest["name"] = name
         df = pd.concat((df, latest), ignore_index=True, sort=False)
     else:
-        df = pd.DataFrame(encodings, columns=[f"encoding_{i}" for i in range(128)])
+        df = pd.DataFrame(encodings, columns=[f"encoding_{i}" for i in range(512)])
         df["name"] = name
 
     df.to_csv(DATA_FILE)
@@ -74,6 +89,9 @@ def capture_face_data(name, max_samples=15):
         print("Error: Could not open camera!")
         return False
 
+    # Get the face analysis model
+    face_app = get_face_app()
+    
     encodings_list = []
     
     print(f"\n{'='*60}")
@@ -90,14 +108,13 @@ def capture_face_data(name, max_samples=15):
         if not ret or frame is None:
             continue
 
-        # Convert BGR to RGB for face_recognition
-        rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        # Detect faces using InsightFace
+        faces = face_app.get(frame)
         
-        # Detect faces
-        face_locations = face_recognition.face_locations(rgb_frame, model="hog") #(HOG) Histogram of Oriented Gradients
-
         # Draw green boxes around detected faces
-        for (top, right, bottom, left) in face_locations:
+        for face in faces:
+            bbox = face.bbox.astype(int)
+            left, top, right, bottom = bbox
             cv2.rectangle(frame, (left, top), (right, bottom), (0, 255, 0), 2)
             cv2.putText(frame, "Face Detected", (left + 6, top - 6),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
@@ -106,7 +123,7 @@ def capture_face_data(name, max_samples=15):
         progress_text = f"Samples: {len(encodings_list)}/{max_samples}"
         cv2.putText(frame, progress_text, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
         
-        if len(face_locations) > 0:
+        if len(faces) > 0:
             cv2.putText(frame, "Face Detected - Press 'c' to capture", (10, 60),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
         else:
@@ -116,7 +133,7 @@ def capture_face_data(name, max_samples=15):
         cv2.putText(frame, "Press 'c' to capture | 'q' to quit", (10, 90),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
 
-        cv2.imshow("Face Capture", frame)
+        cv2.imshow("Face Capture (ArcFace)", frame)
 
         key = cv2.waitKey(1)
 
@@ -124,12 +141,12 @@ def capture_face_data(name, max_samples=15):
             print("\nCapture cancelled by user.")
             break
         elif key & 0xFF == ord('c'):
-            if len(face_locations) > 0:
-                # Get face encodings
-                face_encodings = face_recognition.face_encodings(rgb_frame, face_locations)
+            if len(faces) > 0:
+                # Get face embedding from InsightFace (512-dimensional)
+                face_encoding = faces[0].embedding
                 
-                if len(face_encodings) > 0:
-                    encodings_list.append(face_encodings[0])
+                if face_encoding is not None:
+                    encodings_list.append(face_encoding)
                     print(f"[OK] Captured sample {len(encodings_list)}/{max_samples}")
                     
                     if len(encodings_list) >= max_samples:
@@ -266,7 +283,7 @@ def list_faces():
 def train_model():
     """Train KNN model on collected face data."""
     print("\n" + "="*60)
-    print("TRAIN MODEL (KNN)")
+    print("TRAIN MODEL (KNN with ArcFace embeddings)")
     print("="*60)
     
     if not os.path.isfile(DATA_FILE):
@@ -294,9 +311,9 @@ def train_model():
     # Determine k for KNN (use smaller of 5 or number of samples)
     n_neighbors = min(5, len(X))
     
-    # Train KNN model
-    print(f"\nTraining KNN model with k={n_neighbors}...")
-    model = KNeighborsClassifier(n_neighbors=n_neighbors, weights='distance', metric='euclidean')
+    # Train KNN model with cosine metric (better for ArcFace embeddings)
+    print(f"\nTraining KNN model with k={n_neighbors} (cosine metric)...")
+    model = KNeighborsClassifier(n_neighbors=n_neighbors, weights='distance', metric='cosine')
     model.fit(X, y)
     
     # Save model
@@ -316,7 +333,7 @@ def main_menu():
         print("1. Add new face")
         print("2. Remove face")
         print("3. List all faces")
-        print("4. Train model (KNN)")
+        print("4. Train model (KNN + ArcFace)")
         print("5. Exit")
         print("-"*60)
         

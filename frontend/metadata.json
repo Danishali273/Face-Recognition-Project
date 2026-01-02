@@ -1,7 +1,0 @@
-{
-  "name": "FaceGuard UI",
-  "description": "A modern React frontend for the Face Data Management System, featuring data collection, management, training simulation, and recognition visualization.",
-  "requestFramePermissions": [
-    "camera"
-  ]
-}

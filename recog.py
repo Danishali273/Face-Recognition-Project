@@ -1,8 +1,8 @@
 import cv2
 import numpy as np
-import face_recognition
 import pickle
 import os
+from insightface.app import FaceAnalysis
 
 # Recognition threshold - faces with confidence below this are marked as Unknown
 RECOGNITION_THRESHOLD = 0.4
@@ -18,6 +18,12 @@ with open("face_model.pkl", "rb") as f:
 print("ML Model loaded successfully!")
 print(f"Model can recognize: {model.classes_}")
 
+# Initialize InsightFace ArcFace model
+print("Loading ArcFace model...")
+face_app = FaceAnalysis(name='buffalo_l', providers=['CPUExecutionProvider'])
+face_app.prepare(ctx_id=0, det_size=(640, 640))
+print("ArcFace model loaded!")
+
 cap = cv2.VideoCapture(0)
 
 while True:
@@ -25,20 +31,21 @@ while True:
     if not ret:
         continue
 
-    # Resize for speed (optional)
-    small_frame = cv2.resize(frame, (0, 0), fx=0.25, fy=0.25) 
-    rgb_small_frame = cv2.cvtColor(small_frame, cv2.COLOR_BGR2RGB)
-
-    # 2. DETECT FACES
-    face_locations = face_recognition.face_locations(rgb_small_frame)
-    
-    # 3. EXTRACT FEATURES (The 128 numbers)
-    face_encodings = face_recognition.face_encodings(rgb_small_frame, face_locations)
+    # Detect faces and extract embeddings using ArcFace
+    faces = face_app.get(frame)
 
     face_names = []
     face_confidences = []
+    face_boxes = []
     
-    for face_encoding in face_encodings:
+    for face in faces:
+        # Get 512-dimensional ArcFace embedding
+        face_encoding = face.embedding
+        
+        # Get bounding box
+        bbox = face.bbox.astype(int)
+        face_boxes.append(bbox)
+        
         # 4. PREDICT USING ML MODEL and calculate confidence
         # Get distance to nearest neighbors
         distances, _ = model.kneighbors([face_encoding])
@@ -46,11 +53,11 @@ while True:
         # Use the minimum distance (best match) for confidence
         min_distance = np.min(distances)
         
-        # Face recognition distances typically range from 0.0 (perfect match) to 1.0+ (no match)
-        # Distance < 0.4 = excellent match
-        # Distance < 0.6 = good match  
-        # Distance > 0.6 = poor match
-        confidence = max(0, min(1, 1 - (min_distance / 0.6)))
+        # ArcFace embeddings use cosine distance, typical range 0-2
+        # Distance < 0.8 = excellent match
+        # Distance < 1.2 = good match  
+        # Distance > 1.2 = poor match
+        confidence = max(0, min(1, 1 - (min_distance / 1.2)))
         
         # Only predict name if confidence is above threshold
         if confidence >= RECOGNITION_THRESHOLD:
@@ -62,12 +69,8 @@ while True:
         face_confidences.append(confidence)
 
     # Display results
-    for (top, right, bottom, left), name, confidence in zip(face_locations, face_names, face_confidences):
-        # Scale back up
-        top *= 4
-        right *= 4
-        bottom *= 4
-        left *= 4
+    for bbox, name, confidence in zip(face_boxes, face_names, face_confidences):
+        left, top, right, bottom = bbox
 
         # Choose color based on recognition status
         # Red for Unknown, Green for recognized
@@ -83,11 +86,11 @@ while True:
         (text_width, text_height), baseline = cv2.getTextSize(label, cv2.FONT_HERSHEY_DUPLEX, 0.6, 1)
         
         # Draw filled rectangle above the box for text background
-        cv2.rectangle(frame, (left, top - text_height - 10), (left + text_width + 10, top), color)
+        cv2.rectangle(frame, (left, top - text_height - 10), (left + text_width + 10, top), color, -1)
         # Draw text
         cv2.putText(frame, label, (left + 5, top - 5), cv2.FONT_HERSHEY_DUPLEX, 0.6, (255, 255, 255), 1)
 
-    cv2.imshow('ML Face Recognition', frame)
+    cv2.imshow('ArcFace Recognition', frame)
 
     if cv2.waitKey(1) & 0xFF == ord('q'):
         break
