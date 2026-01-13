@@ -486,8 +486,8 @@ class FaceRecognitionApp(ctk.CTk):
                 X = df.drop("name", axis=1).values
                 y = df["name"].values
                 
-                n_neighbors = min(5, len(X))
-                model = KNeighborsClassifier(n_neighbors=n_neighbors, weights='distance', metric='cosine')
+                # Train SVM model for face recognition
+                model = SVC(kernel='rbf', C=1.0, gamma='scale', probability=True, random_state=42)
                 model.fit(X, y)
                 
                 with open(MODEL_FILE, "wb") as f:
