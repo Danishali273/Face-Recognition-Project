@@ -2,6 +2,7 @@ import cv2
 import numpy as np
 import pickle
 import os
+import time
 from insightface.app import FaceAnalysis
 
 # Recognition threshold - faces with confidence below this are marked as Unknown
@@ -26,10 +27,22 @@ print("ArcFace model loaded!")
 
 cap = cv2.VideoCapture(0)  # Change to 0 for webcam
 
+# FPS calculation
+fps_start_time = time.time()
+fps_frame_count = 0
+current_fps = 0
+
 while True:
     ret, frame = cap.read()
     if not ret:
         continue
+
+    # FPS calculation
+    fps_frame_count += 1
+    if fps_frame_count >= 10:
+        current_fps = fps_frame_count / (time.time() - fps_start_time)
+        fps_start_time = time.time()
+        fps_frame_count = 0
 
     # Detect faces and extract embeddings using ArcFace
     faces = face_app.get(frame)
@@ -47,22 +60,18 @@ while True:
         face_boxes.append(bbox)
         
         # 4. PREDICT USING ML MODEL and calculate confidence
-        # Get distance to nearest neighbors
-        distances, _ = model.kneighbors([face_encoding])
+        # Get prediction probabilities from SVM
+        probabilities = model.predict_proba([face_encoding])[0]
         
-        # Use the minimum distance (best match) for confidence
-        min_distance = np.min(distances)
+        # Use the maximum probability as confidence score
+        confidence = np.max(probabilities)
         
-        # ArcFace embeddings use cosine distance, typical range 0-2
-        # Distance < 0.8 = excellent match
-        # Distance < 1.2 = good match  
-        # Distance > 1.2 = poor match
-        confidence = max(0, min(1, 1 - (min_distance / 1.2)))
+        # Get the predicted class
+        predicted_class_idx = np.argmax(probabilities)
+        name = model.classes_[predicted_class_idx]
         
-        # Only predict name if confidence is above threshold
-        if confidence >= RECOGNITION_THRESHOLD:
-            name = model.predict([face_encoding])[0]
-        else:
+        # Only keep prediction if confidence is above threshold
+        if confidence < RECOGNITION_THRESHOLD:
             name = "Unknown"
         
         face_names.append(name)
@@ -97,18 +106,18 @@ while True:
 
     # Draw statistics panel
     panel_x, panel_y = 10, 10
-    panel_w, panel_h = 260, 120
+    panel_w, panel_h = 260, 140
     cv2.rectangle(frame, (panel_x, panel_y), (panel_x + panel_w, panel_y + panel_h), (20, 20, 20), -1)
 
     stats_lines = [
-        "Current stats:",
+        f"FPS: {current_fps:.1f}",
         f"Total faces: {current_detected}",
         f"Recognized: {current_recognized}",
         f"Unknown: {current_unknown}",
     ]
 
     for idx, line in enumerate(stats_lines):
-        y_offset = panel_y + 25 + (idx * 20)
+        y_offset = panel_y + 25 + (idx * 25)
         cv2.putText(
             frame,
             line,

@@ -1,23 +1,12 @@
-"""
-Face Data Management System (ArcFace)
---------------------------------------
-Complete management interface for face recognition database.
-Uses InsightFace ArcFace model for 512-dimensional embeddings.
-
-Features:
-  1. Add new face - Capture face samples for new person
-  2. Remove face - Delete person from database
-  3. List faces - View all stored persons with sample counts
-  4. Train model - Train KNN model on collected data
-"""
 
 import cv2
 import numpy as np
 import pandas as pd
 import os
 import pickle
-from sklearn.neighbors import KNeighborsClassifier
+from sklearn.svm import SVC
 from insightface.app import FaceAnalysis
+
 
 # File where data will be stored
 DATA_FILE = "face_encodings.csv"
@@ -280,64 +269,19 @@ def list_faces():
     print(f"\nTotal persons: {len(sample_counts)}")
 
 
-def train_model():
-    """Train KNN model on collected face data."""
-    print("\n" + "="*60)
-    print("TRAIN MODEL (KNN with ArcFace embeddings)")
-    print("="*60)
-    
-    if not os.path.isfile(DATA_FILE):
-        print("[X] No data found. Add faces first using option 1.")
-        return
-    
-    try:
-        df = pd.read_csv(DATA_FILE, index_col=0)
-    except Exception as e:
-        print(f"[X] Error loading data: {e}")
-        return
-    
-    if len(df) < 1:
-        print("[X] No data found. Add faces first.")
-        return
-    
-    # Split into features and labels
-    X = df.drop("name", axis=1).values
-    y = df["name"].values
-    
-    unique_names = np.unique(y)
-    print(f"\nDataset loaded: {len(X)} samples, {len(unique_names)} persons")
-    print(f"Persons: {list(unique_names)}")
-    
-    # Determine k for KNN (use smaller of 5 or number of samples)
-    n_neighbors = min(5, len(X))
-    
-    # Train KNN model with cosine metric (better for ArcFace embeddings)
-    print(f"\nTraining KNN model with k={n_neighbors} (cosine metric)...")
-    model = KNeighborsClassifier(n_neighbors=n_neighbors, weights='distance', metric='cosine')
-    model.fit(X, y)
-    
-    # Save model
-    with open(MODEL_FILE, "wb") as f:
-        pickle.dump(model, f)
-    
-    print(f"\n[OK] Model trained and saved as '{MODEL_FILE}'!")
-    print(f"[OK] Model can recognize: {list(model.classes_)}")
-
-
 def main_menu():
     """Display main menu and handle user input."""
     while True:
         print("\n" + "="*60)
-        print("FACE RECOGNITION - MANAGEMENT SYSTEM")
+        print("FACE RECOGNITION - MANAGEMENT SYSTEM (SVM Model)")
         print("="*60)
         print("1. Add new face")
         print("2. Remove face")
         print("3. List all faces")
-        print("4. Train model (KNN + ArcFace)")
-        print("5. Exit")
+        print("4. Exit")
         print("-"*60)
         
-        choice = input("Enter choice (1-5): ").strip()
+        choice = input("Enter choice (1-4): ").strip()
         
         if choice == "1":
             add_face()
@@ -346,13 +290,10 @@ def main_menu():
         elif choice == "3":
             list_faces()
         elif choice == "4":
-            train_model()
-        elif choice == "5":
             print("\nGoodbye!")
             break
         else:
-            print("[X] Invalid choice. Please enter 1-5.")
-
+            print("[X] Invalid choice. Please enter 1-4.")
 
 if __name__ == "__main__":
     main_menu()

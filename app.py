@@ -1,9 +1,11 @@
+
 """
 Face Recognition Desktop App
 -----------------------------
 Modern GUI application using CustomTkinter for face recognition
-with ArcFace embeddings and KNN classification.
+with ArcFace embeddings and SVM (Support Vector Machine) classification.
 """
+
 
 import customtkinter as ctk
 from PIL import Image, ImageTk
@@ -15,7 +17,7 @@ import os
 import threading
 from tkinter import messagebox, simpledialog
 from insightface.app import FaceAnalysis
-from sklearn.neighbors import KNeighborsClassifier
+from sklearn.svm import SVC
 
 # ============== Configuration ==============
 DATA_FILE = "face_encodings.csv"
@@ -52,6 +54,8 @@ class FaceRecognitionApp(ctk.CTk):
         
         # Load model and ArcFace in background
         self.after(100, self.initialize_models)
+
+    # (If you have any KNeighborsClassifier usage, replace with SVC)
     
     def create_widgets(self):
         """Create all UI widgets."""

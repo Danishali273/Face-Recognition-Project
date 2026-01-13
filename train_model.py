@@ -1,7 +1,7 @@
 import pandas as pd
 import numpy as np
 import pickle
-from sklearn.neighbors import KNeighborsClassifier
+from sklearn.svm import SVC
 
 DATA_FILE = "face_encodings.csv"
 
@@ -21,13 +21,12 @@ def train():
     # Y = The 'name' column
     y = df["name"].values
 
-    # 3. Train the Model using KNN (K-Nearest Neighbors)
-    # KNN works well for face recognition as it finds similar faces
-    # Using cosine metric which works better with ArcFace embeddings
-    n_neighbors = min(5, len(X))  # Use k=5 or less if we have fewer samples
-    model = KNeighborsClassifier(n_neighbors=n_neighbors, weights='distance', metric='cosine')
+    # 3. Train the Model using SVM (Support Vector Machine)
+    # SVM works well for face recognition with high-dimensional embeddings
+    # Using RBF kernel which is effective for non-linear classification
+    model = SVC(kernel='rbf', C=1.0, gamma='scale', probability=True, random_state=42)
     
-    print(f"Training KNN model with k={n_neighbors} (cosine metric for ArcFace)...")
+    print("Training SVM model with RBF kernel...")
     model.fit(X, y)
     
     # 4. Save the trained model
