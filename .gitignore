@@ -1,6 +1,21 @@
-[face_encodings.csv](http://_vscodecontentref_/0)
-[face_model.pkl](http://_vscodecontentref_/1)
+# Python
+__pycache__
+
+# Virtual Environments
+venv/
+.venv
+
+# Data Files (contains user data)
+face_encodings.csv
+face_model.pkl
 *.pkl
 *.csv
-/venv
-.vs
+
+# Generated Files
+embedding_space_pca.html
+*.html
+*.log
+
+# IDE
+.vs/
+.cursor/
