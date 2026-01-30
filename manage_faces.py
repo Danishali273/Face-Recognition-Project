@@ -32,7 +32,7 @@ def capture_face_data(name: str, max_samples: int = None) -> bool:
     Args:
         name: Person's name to associate with captured data
         max_samples: Maximum number of samples to capture.
-                   If None, uses config.CAPTURE_MAX_SAMPLES
+        If None, uses config.CAPTURE_MAX_SAMPLES
     
     Returns:
         bool: True if capture was successful, False otherwise.

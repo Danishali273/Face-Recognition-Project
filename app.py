@@ -104,7 +104,7 @@ class FaceRecognitionApp(ctk.CTk):
         
         self.logo_label = ctk.CTkLabel(
             title_frame, 
-            text="🎯 Face Recognition",
+            text="Face Recognition System",
             font=ctk.CTkFont(size=24, weight="bold")
         )
         self.logo_label.pack()
